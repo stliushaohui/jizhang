@@ -1,0 +1,106 @@
+nginx:
+
+server {
+    listen 80;
+    server_name yizhixiaoyuer.cn;
+
+    location / {
+        proxy_pass http://unix:/home/python_project/testgame/testgame.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    access_log /var/log/nginx/testgame_access.log;
+    error_log /var/log/nginx/testgame_error.log;
+}
+
+
+server {
+    listen 80;
+    server_name jz.yizhixiaoyuer.cn;
+
+    location / {
+        proxy_pass http://unix:/home/python_project/jz/jz.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    access_log /var/log/nginx/jz.log;
+    error_log /var/log/nginx/jz.log;
+}
+
+
+启用 nginx新配置：
+sudo ln -s /etc/nginx/sites-available/testgame /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/testgame /etc/nginx/sites-enabled/
+
+检查nginx配置是否正常
+sudo nginx -t
+
+重新加载nginx：
+sudo systemctl reload nginx
+
+
+
+
+
+supervisor配置:
+
+[program:testgame]
+command=gunicorn --workers 4 --bind unix:/home/python_project/testgame/testgame.sock --max-requests 1000 --max-requests-jitter 100 app:app
+directory=/home/python_project/testgame
+user=root
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/testgame.err.log
+stdout_logfile=/var/log/supervisor/testgame.out.log
+
+
+[program:jz]
+command=gunicorn --workers 4 --bind unix:/home/python_project/jz/jz.sock --max-requests 1000 --max-requests-jitter 100 jz:app
+directory=/home/python_project/jz
+user=nobody
+autostart=true
+autorestart=true
+stderr_logfile=/var/log/supervisor/jz.err.log
+stdout_logfile=/var/log/supervisor/jz.out.log
+
+启动supervisor配置：
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start test
+
+多个应用nginx配置：
+server {
+    listen 80;
+    server_name yizhixiaoyuer.cn;
+
+    # 反向代理到 app1
+    location /testgame/ {
+        proxy_pass http://unix:/home/python_project/testgame/testgame.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 反向代理到 app2
+    location /jz/ {
+        proxy_pass http://unix:/home/python_project/jz/jz/.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    access_log /var/log/nginx/game_access.log;
+    error_log /var/log/nginx/game_error.log;
+}
+
+sudo systemctl status gunicorn.service
+重启 gunicorn服务
+sudo systemctl restart gunicorn.service
