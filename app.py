@@ -22,19 +22,20 @@ def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        ''')
+        c.execute('''
             CREATE TABLE IF NOT EXISTS records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 type TEXT NOT NULL,
                 amount REAL NOT NULL,
                 note TEXT,
-                date TEXT NOT NULL
-            )
-        ''')
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
+                date TEXT NOT NULL,
+                user_id INTEGER
             )
         ''')
         conn.commit()
@@ -73,7 +74,7 @@ def login():
                 flash("用户名或密码错误", "danger")
     return render_template('login.html')
 
-# 主页（登录后选择功能）
+# 主页
 @app.route('/jz/home')
 @login_required
 def home():
@@ -94,11 +95,16 @@ def add_record():
     note = request.form.get('note', '')
     date = request.form['date']
 
+    current_user = session['user']
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute("INSERT INTO records (type, amount, note, date) VALUES (?, ?, ?, ?)",
-                  (record_type, amount, note, date))
-        conn.commit()
+        c.execute("SELECT id FROM users WHERE username=?", (current_user,))
+        user = c.fetchone()
+        if user:
+            user_id = user[0]
+            c.execute("INSERT INTO records (type, amount, note, date, user_id) VALUES (?, ?, ?, ?, ?)",
+                      (record_type, amount, note, date, user_id))
+            conn.commit()
     flash("记录添加成功", "success")
     return redirect(url_for('add_page'))
 
@@ -117,10 +123,18 @@ def stats():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
-    query = "SELECT * FROM records WHERE type = ? AND date BETWEEN ? AND ?"
+    current_user = session['user']
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute(query, (query_type, start_date, end_date))
+        c.execute("SELECT id FROM users WHERE username=?", (current_user,))
+        user = c.fetchone()
+        if not user:
+            flash("用户不存在", "danger")
+            return redirect(url_for("stats_page"))
+        user_id = user[0]
+
+        query = "SELECT * FROM records WHERE user_id = ? AND type = ? AND date BETWEEN ? AND ?"
+        c.execute(query, (user_id, query_type, start_date, end_date))
         results = c.fetchall()
 
     if display_type == 'total':
@@ -155,33 +169,35 @@ def logout():
     flash("已退出登录", "info")
     return redirect(url_for('login'))
 
-# 快捷指令接口：提交记账数据
+# 快捷指令接口
 @app.route('/api/add', methods=['POST'])
 def api_add_record():
     data = request.json
-    token = data.get('token')
+    username = data.get('username')
+    password = data.get('password')
     record_type = data.get('type')
     amount = data.get('amount')
     note = data.get('note', '')
     date = data.get('date')
 
-    # 简单的 token 验证（防止随便调用）
-    if token != 'lsh88nihao':
-        return {"status": "error", "message": "无效的 token"}, 403
-
-    try:
-        amount = float(amount)
-    except:
-        return {"status": "error", "message": "金额格式不正确"}, 400
-
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
-        c.execute("INSERT INTO records (type, amount, note, date) VALUES (?, ?, ?, ?)",
-                  (record_type, amount, note, date))
+        c.execute("SELECT id FROM users WHERE username = ? AND password = ?", (username, password))
+        user = c.fetchone()
+        if not user:
+            return {"status": "error", "message": "用户名或密码错误"}, 403
+        user_id = user[0]
+
+        try:
+            amount = float(amount)
+        except:
+            return {"status": "error", "message": "金额格式不正确"}, 400
+
+        c.execute("INSERT INTO records (type, amount, note, date, user_id) VALUES (?, ?, ?, ?, ?)",
+                  (record_type, amount, note, date, user_id))
         conn.commit()
 
     return {"status": "success", "message": "记录添加成功"}
-
 
 # 初始化数据库
 init_db()
