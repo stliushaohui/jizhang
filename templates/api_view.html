@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>账单总览</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: linear-gradient(to bottom right, #f0f4f8, #d9e2ec);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 20px;
+            margin-top: 30px;
+            background: #ffffffcc;
+            border-radius: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+        .btn-group form {
+            display: inline;
+        }
+        .btn-group button {
+            padding: 10px 20px;
+            background-color: #4f9eed;
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-group button:hover {
+            background-color: #357bcf;
+        }
+        .summary {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #333;
+        }
+        .record {
+            background: #ffffff;
+            border-left: 6px solid #4f9eed;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .record.income {
+            border-left-color: #28a745;
+        }
+        .record.expense {
+            border-left-color: #dc3545;
+        }
+        .record p {
+            margin: 6px 0;
+            color: #555;
+            font-size: 15px;
+        }
+        .record-actions {
+            margin-top: 10px;
+        }
+        .record-actions a {
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .record-actions a.edit {
+            color: #007BFF;
+            margin-right: 15px;
+        }
+        .record-actions a.delete {
+            color: #dc3545;
+        }
+        .footer {
+            margin-top: 30px;
+            font-size: 13px;
+            color: #999;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>你好，{{ username }}！</h2>
+
+        <div class="btn-group">
+            <form method="get">
+                <input type="hidden" name="username" value="{{ username }}">
+                <input type="hidden" name="password" value="{{ password }}">
+                <input type="hidden" name="type" value="income">
+                <button type="submit">收入记录</button>
+            </form>
+            <form method="get">
+                <input type="hidden" name="username" value="{{ username }}">
+                <input type="hidden" name="password" value="{{ password }}">
+                <input type="hidden" name="type" value="expense">
+                <button type="submit">支出记录</button>
+            </form>
+        </div>
+
+        {% if records %}
+        <div class="summary">
+            <strong>{{ label }}：</strong>共 {{ total }} 元
+        </div>
+        <div>
+            {% for r in records %}
+            <div class="record {{ r['type'] }}">
+                <p><strong>📅 日期：</strong>{{ r["date"] }}</p>
+                <p><strong>💰 金额：</strong>{{ r["amount"] }} 元</p>
+                <p><strong>📝 备注：</strong>{{ r["note"] }}</p>
+                <div class="record-actions">
+                    <a class="edit" href="{{ url_for('api_edit_page', record_id=r['id'], username=username, password=password) }}">✏️ 编辑</a>
+                    <a class="delete" href="{{ url_for('api_delete_record', record_id=r['id'], username=username, password=password) }}" onclick="return confirm('确认要删除该记录吗？');">🗑 删除</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="footer">
+        简易记账系统 &copy; {{ now().year }}
+    </div>
+</body>
+</html>

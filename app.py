@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import sqlite3
 from datetime import datetime
 from functools import wraps
+import hashlib  # 在文件顶部添加导入
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
@@ -199,8 +200,79 @@ def api_add_record():
 
     return {"status": "success", "message": "记录添加成功"}
 
+
 # 初始化数据库
 init_db()
+
+@app.route('/api/bill', methods=['GET'])
+def api_bill():
+    username = request.args.get('username')
+    sign = request.args.get('sign')
+    token_fixed = 'lsh88nihao'  # 固定token
+
+    # 参数校验
+    if not username or not sign:
+        return {"status": "error", "message": "参数不完整"}, 400
+
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT id, password FROM users WHERE username=?", (username,))
+        user = c.fetchone()
+        if not user:
+            return {"status": "error", "message": "用户不存在"}, 404
+
+        user_id, password = user
+
+        # 生成签名校验
+        s = f"{username}{password}{token_fixed}".encode()
+        computed_sign = hashlib.sha256(s).hexdigest()
+        if computed_sign != sign:
+            return {"status": "error", "message": "签名验证失败"}, 403
+
+        # 获取查询参数
+        record_type = request.args.get('type', 'expense')
+        if record_type not in ('income', 'expense'):
+            record_type = 'expense'
+
+        page = request.args.get('page', 1, type=int)
+        per_page = 10
+        offset = (page - 1) * per_page
+
+        # 查询记录总数和金额总和
+        c.execute("""
+            SELECT COUNT(*), SUM(amount) 
+            FROM records 
+            WHERE user_id=? AND type=?
+        """, (user_id, record_type))
+        total_records, total_amount = c.fetchone()
+        total_amount = total_amount or 0
+        total_pages = (total_records + per_page - 1) // per_page
+
+        # 查询当前页数据
+        c.execute("""
+            SELECT date, type, amount, note 
+            FROM records 
+            WHERE user_id=? AND type=?
+            ORDER BY date DESC 
+            LIMIT ? OFFSET ?
+        """, (user_id, record_type, per_page, offset))
+        records = [{
+            "date": r[0],
+            "type": "收入" if r[1] == "income" else "支出",
+            "amount": round(r[2], 2),
+            "note": r[3]
+        } for r in c.fetchall()]
+
+    return render_template(
+        'bill.html',
+        records=records,
+        username=username,
+        sign=sign,
+        record_type=record_type,
+        current_page=page,
+        total_pages=total_pages,
+        total_amount=round(total_amount, 2)
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

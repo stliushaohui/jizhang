@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>编辑记录</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: "Helvetica Neue", sans-serif;
+            background: #f0f4f8;
+            padding: 30px;
+        }
+        .form-container {
+            max-width: 500px;
+            margin: auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-top: 12px;
+            font-weight: bold;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 6px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        button {
+            margin-top: 20px;
+            width: 100%;
+            padding: 12px;
+            background-color: #4f9eed;
+            color: white;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #357bcf;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2>编辑账单记录</h2>
+        <form method="POST">
+            <input type="hidden" name="username" value="{{ username }}">
+            <input type="hidden" name="password" value="{{ password }}">
+
+            <label>金额：</label>
+            <input type="number" name="amount" value="{{ record.amount }}" step="0.01" required>
+
+            <label>备注：</label>
+            <textarea name="note">{{ record.note }}</textarea>
+
+            <label>日期：</label>
+            <input type="date" name="date" value="{{ record.date }}" required>
+
+            <button type="submit">保存修改</button>
+        </form>
+    </div>
+</body>
+</html>

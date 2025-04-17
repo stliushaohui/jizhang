@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账单详情</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f0f4f8;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 900px;
+            margin: 50px auto;
+        }
+        .header {
+            margin-bottom: 40px;
+            text-align: center;
+        }
+        .header h2 {
+            font-size: 32px;
+            color: #333;
+            font-weight: bold;
+        }
+        .total-box {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .total-box h4 {
+            font-size: 24px;
+            color: #4caf50;
+            font-weight: 600;
+        }
+        .btn-group a {
+            font-size: 18px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .btn-group .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-group .btn-light {
+            background-color: #f8f9fa;
+            color: #007bff;
+        }
+        .btn-group .btn:hover {
+            opacity: 0.9;
+        }
+        .table {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .table th, .table td {
+            text-align: center;
+            padding: 15px;
+        }
+        .table thead {
+            background-color: #f1f1f1;
+            color: #333;
+        }
+        .pagination {
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .page-link {
+            color: #007bff;
+            transition: background-color 0.3s ease;
+        }
+        .page-link:hover {
+            background-color: #f1f1f1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>{{ username }}的账单</h2>
+        <div class="total-box">
+            <h4>当前{{ '支出' if record_type == 'expense' else '收入' }}总计：{{ total_amount }}元</h4>
+        </div>
+    </div>
+
+    <!-- 类型切换按钮 -->
+    <div class="btn-group mb-4">
+        <a href="{{ url_for('api_bill', username=username, sign=sign, type='expense', page=1) }}"
+           class="btn btn-{{ 'primary' if record_type == 'expense' else 'light' }}">支出</a>
+        <a href="{{ url_for('api_bill', username=username, sign=sign, type='income', page=1) }}"
+           class="btn btn-{{ 'primary' if record_type == 'income' else 'light' }}">收入</a>
+    </div>
+
+    <!-- 记录表格 -->
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>类型</th>
+                <th>金额</th>
+                <th>备注</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.date }}</td>
+                <td>{{ record.type }}</td>
+                <td>{{ record.amount }}</td>
+                <td>{{ record.note }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" class="text-center">暂无记录</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- 分页 -->
+    {% if total_pages > 1 %}
+    <nav>
+        <ul class="pagination">
+            {% if current_page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('api_bill', username=username, sign=sign, type=record_type, page=current_page-1) }}">上一页</a>
+            </li>
+            {% endif %}
+
+            {% for p in range(1, total_pages + 1) %}
+            <li class="page-item {% if p == current_page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('api_bill', username=username, sign=sign, type=record_type, page=p) }}">{{ p }}</a>
+            </li>
+            {% endfor %}
+
+            {% if current_page < total_pages %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('api_bill', username=username, sign=sign, type=record_type, page=current_page+1) }}">下一页</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+</body>
+</html>
