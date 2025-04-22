@@ -104,3 +104,6 @@ server {
 sudo systemctl status gunicorn.service
 重启 gunicorn服务
 sudo systemctl restart gunicorn.service
+
+https://yizhixiaoyuer.cn/api/bill?username=lsh1&sign=95cf42c5fced397f9c7a0cc51351bb20e753766f753006b115b8833f6abdb827
+http://127.0.0.1:5000/api/bill?username=lsh&sign=16f4443e9dc384b389a50ccaafef830884408cbd09f042ef08c9518065643c89

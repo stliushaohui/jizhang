@@ -5,12 +5,12 @@ url = " http://127.0.0.1:5000/api/add"
 
 for i in range(10):
     data = {
-      "username": "lsh",
-      "password": "bn123456",
+      "username": "lsh1",
+      "password": "123",
       "type": "expense",
       "amount": 22.5,
       "note": "买菜"+str(i),
-      "date": "2025-04-16"
+      "date": "2025-04-21"
     }
     response = requests.post(url, json=data)  # ✅ 改这里！
 

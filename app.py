@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import sqlite3
 from datetime import datetime
 from functools import wraps
-import hashlib  # 在文件顶部添加导入
+import hashlib
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'
@@ -163,14 +163,12 @@ def stats():
             "display_type": "all"
         }, records=records)
 
-# 登出
 @app.route('/logout')
 def logout():
     session.pop('user', None)
     flash("已退出登录", "info")
     return redirect(url_for('login'))
 
-# 快捷指令接口
 @app.route('/api/add', methods=['POST'])
 def api_add_record():
     data = request.json
@@ -200,17 +198,12 @@ def api_add_record():
 
     return {"status": "success", "message": "记录添加成功"}
 
-
-# 初始化数据库
-init_db()
-
 @app.route('/api/bill', methods=['GET'])
 def api_bill():
     username = request.args.get('username')
     sign = request.args.get('sign')
-    token_fixed = 'lsh88nihao'  # 固定token
+    token_fixed = 'lsh88nihao'
 
-    # 参数校验
     if not username or not sign:
         return {"status": "error", "message": "参数不完整"}, 400
 
@@ -222,14 +215,11 @@ def api_bill():
             return {"status": "error", "message": "用户不存在"}, 404
 
         user_id, password = user
-
-        # 生成签名校验
         s = f"{username}{password}{token_fixed}".encode()
         computed_sign = hashlib.sha256(s).hexdigest()
         if computed_sign != sign:
             return {"status": "error", "message": "签名验证失败"}, 403
 
-        # 获取查询参数
         record_type = request.args.get('type', 'expense')
         if record_type not in ('income', 'expense'):
             record_type = 'expense'
@@ -238,29 +228,24 @@ def api_bill():
         per_page = 10
         offset = (page - 1) * per_page
 
-        # 查询记录总数和金额总和
-        c.execute("""
-            SELECT COUNT(*), SUM(amount) 
-            FROM records 
-            WHERE user_id=? AND type=?
-        """, (user_id, record_type))
+        c.execute("SELECT COUNT(*), SUM(amount) FROM records WHERE user_id=? AND type=?", (user_id, record_type))
         total_records, total_amount = c.fetchone()
         total_amount = total_amount or 0
         total_pages = (total_records + per_page - 1) // per_page
 
-        # 查询当前页数据
         c.execute("""
-            SELECT date, type, amount, note 
+            SELECT id, date, type, amount, note 
             FROM records 
             WHERE user_id=? AND type=?
             ORDER BY date DESC 
             LIMIT ? OFFSET ?
         """, (user_id, record_type, per_page, offset))
         records = [{
-            "date": r[0],
-            "type": "收入" if r[1] == "income" else "支出",
-            "amount": round(r[2], 2),
-            "note": r[3]
+            "id": r[0],
+            "date": r[1],
+            "type": "收入" if r[2] == "income" else "支出",
+            "amount": round(r[3], 2),
+            "note": r[4]
         } for r in c.fetchall()]
 
     return render_template(
@@ -273,6 +258,131 @@ def api_bill():
         total_pages=total_pages,
         total_amount=round(total_amount, 2)
     )
+
+def verify_signature(username, sign):
+    token_fixed = 'lsh88nihao'
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("SELECT password FROM users WHERE username=?", (username,))
+        user = c.fetchone()
+        if not user:
+            return False
+        password = user[0]
+        s = f"{username}{password}{token_fixed}".encode()
+        computed_sign = hashlib.sha256(s).hexdigest()
+        return computed_sign == sign
+
+@app.route('/api/get_record', methods=['GET'])
+def get_record():
+    try:
+        record_id = request.args.get('record_id', type=int)
+        username = request.args.get('username')
+        sign = request.args.get('sign')
+
+        if not all([record_id, username, sign]):
+            return {"status": "error", "message": "缺少必要参数"}, 400
+
+        if not verify_signature(username, sign):
+            return {"status": "error", "message": "签名验证失败"}, 403
+
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute("""
+                SELECT r.id, r.type, r.amount, r.note, r.date 
+                FROM records r
+                JOIN users u ON r.user_id = u.id
+                WHERE r.id = ? AND u.username = ?
+            """, (record_id, username))
+            record = c.fetchone()
+
+        if not record:
+            return {"status": "error", "message": "记录不存在或无权访问"}, 404
+
+        return {
+            "status": "success",
+            "data": dict(record)
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"服务器错误: {str(e)}"}, 500
+
+@app.route('/api/update_record', methods=['POST'])
+def update_record():
+    try:
+        data = request.get_json()
+        if not data:
+            return {"status": "error", "message": "无效的JSON数据"}, 400
+
+        required_fields = ['record_id', 'username', 'sign', 'type', 'amount', 'date']
+        if not all(field in data for field in required_fields):
+            return {"status": "error", "message": "缺少必要参数"}, 400
+
+        if not verify_signature(data['username'], data['sign']):
+            return {"status": "error", "message": "签名验证失败"}, 403
+
+        try:
+            amount = float(data['amount'])
+            if amount <= 0:
+                raise ValueError()
+        except:
+            return {"status": "error", "message": "无效的金额格式"}, 400
+
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id FROM users WHERE username=?", (data['username'],))
+            user = c.fetchone()
+            if not user:
+                return {"status": "error", "message": "用户不存在"}, 404
+            user_id = user[0]
+
+            c.execute("""
+                UPDATE records SET
+                    type = ?, amount = ?, note = ?, date = ?
+                WHERE id = ? AND user_id = ?
+            """, (data['type'], amount, data.get('note', ''), data['date'], data['record_id'], user_id))
+
+            if c.rowcount == 0:
+                return {"status": "error", "message": "记录不存在或更新失败"}, 404
+
+            conn.commit()
+
+        return {"status": "success", "message": "更新成功"}
+    except Exception as e:
+        return {"status": "error", "message": f"服务器错误: {str(e)}"}, 500
+
+@app.route('/api/delete_record', methods=['POST'])
+def delete_record():
+    try:
+        data = request.get_json()
+        if not data:
+            return {"status": "error", "message": "无效的JSON数据"}, 400
+
+        required_fields = ['record_id', 'username', 'sign']
+        if not all(field in data for field in required_fields):
+            return {"status": "error", "message": "缺少必要参数"}, 400
+
+        if not verify_signature(data['username'], data['sign']):
+            return {"status": "error", "message": "签名验证失败"}, 403
+
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute("SELECT id FROM users WHERE username=?", (data['username'],))
+            user = c.fetchone()
+            if not user:
+                return {"status": "error", "message": "用户不存在"}, 404
+            user_id = user[0]
+
+            c.execute("DELETE FROM records WHERE id = ? AND user_id = ?", (data['record_id'], user_id))
+            if c.rowcount == 0:
+                return {"status": "error", "message": "记录不存在或删除失败"}, 404
+
+            conn.commit()
+
+        return {"status": "success", "message": "删除成功"}
+    except Exception as e:
+        return {"status": "error", "message": f"服务器错误: {str(e)}"}, 500
+
+init_db()
 
 if __name__ == '__main__':
     app.run(debug=True)

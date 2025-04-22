@@ -1,56 +1,164 @@
 {% extends 'layout.html' %}
 {% block content %}
-<div class="text-center mb-4">
-  <a href="{{ url_for('add_page') }}" class="btn btn-outline-primary me-2">去记账</a>
-  <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">退出登录</a>
-</div>
 
-<div class="card mx-auto" style="max-width: 600px;">
-  <div class="card-body">
-    <h4 class="card-title text-center mb-4">查询记录</h4>
+<style>
+  body {
+    background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+  }
+
+  .stars {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 2s infinite ease-in-out;
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.5); }
+  }
+
+  .stats-container {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 2rem 1rem;
+  }
+
+  .stats-card {
+    width: 100%;
+    max-width: 600px;
+    background: white;
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: 0 0 25px rgba(0,0,0,0.2);
+  }
+
+  .form-select, .form-control {
+    border-radius: 0.6rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .form-control:focus, .form-select:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.1rem rgba(0,123,255,.25);
+  }
+
+  .btn {
+    border-radius: 0.6rem;
+  }
+
+  .record-item {
+    background-color: #f8f9fa;
+    border: none;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .record-item small {
+    display: block;
+    font-size: 0.85rem;
+    color: #666;
+  }
+
+  .top-links {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .top-links a {
+    margin: 0 0.5rem;
+  }
+
+  @media (max-width: 576px) {
+    .stats-card {
+      padding: 1.5rem;
+    }
+  }
+</style>
+
+<div class="stars" id="stars"></div>
+
+<div class="stats-container">
+  <div class="stats-card">
+    <div class="top-links">
+      <a href="{{ url_for('add_page') }}" class="btn btn-outline-primary btn-sm">💰 去记账</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">🚪 退出登录</a>
+    </div>
+
+    <h4 class="text-center mb-4">📊 查询记录</h4>
+
     <form method="get" action="{{ url_for('stats') }}">
-      <div class="mb-3">
-        <select name="query_type" class="form-select" required>
-          <option value="income">收入</option>
-          <option value="expense">支出</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <select name="display_type" class="form-select" required>
-          <option value="total">总金额</option>
-          <option value="all">详细记录</option>
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">起始日期</label>
-        <input type="date" name="start_date" class="form-control" required>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">结束日期</label>
-        <input type="date" name="end_date" class="form-control" required>
-      </div>
-      <div class="d-grid">
-        <button type="submit" class="btn btn-success">查询</button>
+      <select name="query_type" class="form-select" required>
+        <option value="income">收入</option>
+        <option value="expense">支出</option>
+      </select>
+
+      <select name="display_type" class="form-select" required>
+        <option value="total">总金额</option>
+        <option value="all">详细记录</option>
+      </select>
+
+      <input type="date" name="start_date" class="form-control" required placeholder="起始日期">
+      <input type="date" name="end_date" class="form-control" required placeholder="结束日期">
+
+      <div class="d-grid mt-3">
+        <button type="submit" class="btn btn-success">🔍 查询</button>
       </div>
     </form>
 
     {% if stats %}
       <hr>
-      <h5 class="text-center mt-4">{{ stats.label }}</h5>
-      <p class="text-center">时间范围：{{ stats.start_date }} ~ {{ stats.end_date }}</p>
-      <p class="text-center text-primary fw-bold">总计：¥{{ stats.total }}</p>
+      <div class="text-center mt-4">
+        <h5>{{ stats.label }}</h5>
+        <p>时间范围：{{ stats.start_date }} ~ {{ stats.end_date }}</p>
+        <p class="text-primary fw-bold">总计：¥{{ stats.total }}</p>
+      </div>
 
       {% if stats.display_type == 'all' and records %}
-        <ul class="list-group">
+        <hr>
+        <h6 class="text-center mb-3">📃 详细记录</h6>
+        <div>
           {% for r in records %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ r.date }} - {{ r.type }}: ¥{{ r.amount }}
-              {% if r.note %}<small class="text-muted">（{{ r.note }}）</small>{% endif %}
-            </li>
+            <div class="record-item">
+              {{ r.date }} - {{ r.type }}：¥{{ r.amount }}
+              {% if r.note %}
+                <small>备注：{{ r.note }}</small>
+              {% endif %}
+            </div>
           {% endfor %}
-        </ul>
+        </div>
       {% endif %}
     {% endif %}
   </div>
 </div>
+
+<script>
+  const starsContainer = document.getElementById('stars');
+  for (let i = 0; i < 100; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.top = Math.random() * 100 + 'vh';
+    star.style.left = Math.random() * 100 + 'vw';
+    star.style.animationDuration = (1 + Math.random() * 2) + 's';
+    starsContainer.appendChild(star);
+  }
+</script>
+
 {% endblock %}
